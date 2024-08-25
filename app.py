@@ -201,10 +201,17 @@ def main():
     st.header('📊 현재 환경 정보')
     col1, col2, col3, col4 = st.columns(4)
 
+    st.write(latest_data)
     with col1:
         create_card("🌡️ 온도", float(latest_data['AVG_TEMP']), float(latest_data['MIN_TEMP']), float(latest_data['MAX_TEMP']), "°C")
     with col2:
-        create_card("💨 풍속", float(latest_data['AVG_WIND_SPEED']), float(latest_data['MIN_WIND_SPEED']), float(latest_data['MAX_WIND_SPEED']), "m/s")
+        create_card(
+        "💨 풍속",
+        latest_data.get('AVG_WIND_SPEED', 0),
+        latest_data.get('MIN_WIND_SPEED', 0),
+        latest_data.get('MAX_WIND_SPEED', 0),
+        "m/s"
+        )       
     with col3:
         create_card("💧 습도", float(latest_data['AVG_HUMI']), float(latest_data['MIN_HUMI']), float(latest_data['MAX_HUMI']), "%")
     with col4:
