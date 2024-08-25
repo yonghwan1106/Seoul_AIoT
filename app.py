@@ -3,6 +3,11 @@ import requests
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
+import json
+import os
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 # 페이지 설정
 st.set_page_config(page_title="그린 웰니스 트래커", page_icon="🌿", layout="wide")
@@ -72,6 +77,18 @@ def fetch_data():
     data = response.json()
     return pd.DataFrame(data['IotVdata017']['row'])
 
+# 사용자 프로필 관리 함수
+def load_profile(username):
+    if os.path.exists(f"{username}.json"):
+        with open(f"{username}.json", "r") as f:
+            return json.load(f)
+    return None
+
+def save_profile(username, data):
+    with open(f"{username}.json", "w") as f:
+        json.dump(data, f)
+
+
 # 카드 생성 함수
 def create_card(title, value, min_value, max_value, unit):
     st.markdown(f"""
@@ -82,20 +99,60 @@ def create_card(title, value, min_value, max_value, unit):
     </div>
     """, unsafe_allow_html=True)
 
-# 운동 추천 함수
-def recommend_exercise(temp, uv, wind_speed, health_status):
+# 운동 추천 함수 (확장)
+def recommend_exercise(temp, uv, wind_speed, health_status, age, bmi):
+    base_recommendation = ""
     if health_status == '양호':
         if 15 <= temp <= 25 and uv < 6:
-            return '날씨가 좋습니다. 공원에서 30분 조깅을 추천합니다.'
+            base_recommendation = '날씨가 좋습니다. 공원에서 30분 조깅을 추천합니다.'
         else:
-            return '실내에서 요가나 스트레칭을 추천합니다.'
+            base_recommendation = '실내에서 요가나 스트레칭을 추천합니다.'
     elif health_status == '알레르기':
         if wind_speed < 3:
-            return '바람이 약해 알레르기 유발 물질이 적습니다. 가벼운 산책을 추천합니다.'
+            base_recommendation = '바람이 약해 알레르기 유발 물질이 적습니다. 가벼운 산책을 추천합니다.'
         else:
-            return '알레르기 증상이 악화될 수 있습니다. 실내 운동을 추천합니다.'
+            base_recommendation = '알레르기 증상이 악화될 수 있습니다. 실내 운동을 추천합니다.'
     else:
-        return '건강 상태를 고려하여 실내에서 가벼운 운동을 추천합니다. 운동 전 의사와 상담하세요.'
+        base_recommendation = '건강 상태를 고려하여 실내에서 가벼운 운동을 추천합니다. 운동 전 의사와 상담하세요.'
+    
+    # 나이와 BMI를 고려한 추가 권장사항
+    if age > 60:
+        base_recommendation += " 고령자의 경우 저강도 운동을 권장합니다."
+    if bmi > 25:
+        base_recommendation += " 체중 관리를 위해 유산소 운동을 늘리는 것이 좋습니다."
+    elif bmi < 18.5:
+        base_recommendation += " 근력 운동을 통해 체중 증가를 도모하는 것이 좋습니다."
+    
+    return base_recommendation
+
+# 머신러닝 모델 훈련 및 예측 함수
+def train_and_predict(data, user_data):
+    # 특성과 타겟 설정
+    features = ['AVG_TEMP', 'AVG_HUMI', 'AVG_WIND_SPEED', 'AVG_ULTRA_RAYS']
+    target = 'health_score'  # 가상의 건강 점수 (실제 데이터에 맞게 조정 필요)
+
+    # 데이터 준비 (실제 구현 시에는 적절한 데이터 준비 과정 필요)
+    X = data[features]
+    y = data[target]
+
+    # 데이터 분할
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # 스케일링
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    # 모델 훈련
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train_scaled, y_train)
+
+    # 사용자 데이터로 예측
+    user_features = scaler.transform([[user_data['AVG_TEMP'], user_data['AVG_HUMI'], 
+                                       user_data['AVG_WIND_SPEED'], user_data['AVG_ULTRA_RAYS']]])
+    prediction = model.predict(user_features)
+
+    return prediction[0]
 
 # 메인 앱
 def main():
@@ -109,9 +166,36 @@ def main():
 
     # 사이드바 - 사용자 정보
     st.sidebar.header('👤 사용자 정보')
-    user_name = st.sidebar.text_input('이름')
-    user_age = st.sidebar.number_input('나이', min_value=1, max_value=120)
-    user_health = st.sidebar.selectbox('건강 상태', ['양호', '알레르기', '호흡기 질환', '심장 질환'])
+    username = st.sidebar.text_input('사용자명')
+    if username:
+        user_data = load_profile(username)
+        if user_data:
+            st.sidebar.success(f"환영합니다, {username}님!")
+            user_age = user_data['age']
+            user_health = user_data['health_status']
+            user_height = user_data['height']
+            user_weight = user_data['weight']
+        else:
+            st.sidebar.warning("새로운 사용자입니다. 정보를 입력해주세요.")
+            user_age = st.sidebar.number_input('나이', min_value=1, max_value=120)
+            user_health = st.sidebar.selectbox('건강 상태', ['양호', '알레르기', '호흡기 질환', '심장 질환'])
+            user_height = st.sidebar.number_input('키 (cm)', min_value=100, max_value=250)
+            user_weight = st.sidebar.number_input('체중 (kg)', min_value=30, max_value=200)
+            if st.sidebar.button('프로필 저장'):
+                save_profile(username, {
+                    'age': user_age,
+                    'health_status': user_health,
+                    'height': user_height,
+                    'weight': user_weight
+                })
+                st.sidebar.success("프로필이 저장되었습니다!")
+    else:
+        st.sidebar.warning("사용자명을 입력해주세요.")
+
+    # BMI 계산
+    if username and user_data:
+        bmi = user_weight / ((user_height/100) ** 2)
+        st.sidebar.info(f"BMI: {bmi:.2f}")
 
     # 메인 컨텐츠
     st.header('📊 현재 환경 정보')
@@ -146,6 +230,19 @@ def main():
         else:
             st.success('✅ 자외선 지수가 적당합니다.')
 
+    # 여러 공원 데이터 비교
+    st.header('🌳 공원 데이터 비교')
+    parks = df['ADMINISTRATIVE_DISTRICT'].unique()
+    selected_parks = st.multiselect('비교할 공원 선택', parks)
+    
+    if selected_parks:
+        compare_data = df[df['ADMINISTRATIVE_DISTRICT'].isin(selected_parks)]
+        fig = px.bar(compare_data, x='ADMINISTRATIVE_DISTRICT', y=['AVG_TEMP', 'AVG_HUMI', 'AVG_WIND_SPEED', 'AVG_ULTRA_RAYS'],
+                     title='선택된 공원들의 환경 데이터 비교',
+                     labels={'value': '측정값', 'variable': '환경 요소'})
+        st.plotly_chart(fig, use_container_width=True)
+
+
     # 시계열 데이터 시각화
     st.header('📈 최근 환경 데이터 추이')
     df['SENSING_TIME'] = pd.to_datetime(df['SENSING_TIME'])
@@ -170,6 +267,12 @@ def main():
     exercise_recommendation = recommend_exercise(temp, uv, float(latest_data['AVG_WIND_SPEED']), user_health)
     st.info(exercise_recommendation)
 
+        # 머신러닝 모델을 통한 건강 예측
+        st.header('🤖 AI 건강 예측')
+        health_prediction = train_and_predict(df, latest_data)
+        st.success(f"AI 모델이 예측한 당신의 오늘 건강 점수: {health_prediction:.2f}/10")
+        st.caption("이 점수는 현재 환경 조건과 당신의 건강 정보를 바탕으로 예측된 값입니다.")
+    
     # 공원 선택 및 정보 표시
     st.header('🌳 공원 정보')
     parks = df['ADMINISTRATIVE_DISTRICT'].unique()
