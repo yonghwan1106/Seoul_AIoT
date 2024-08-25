@@ -73,9 +73,17 @@ st.markdown("""
 # 데이터 가져오기
 @st.cache_data(ttl=3600)
 def fetch_data():
-    response = requests.get(API_URL)
-    data = response.json()
-    return pd.DataFrame(data['IotVdata017']['row'])
+    try:
+        response = requests.get(API_URL)
+        data = response.json()
+        if 'IotVdata017' in data and 'row' in data['IotVdata017']:
+            return pd.DataFrame(data['IotVdata017']['row'])
+        else:
+            st.error("API 응답에서 예상한 데이터 구조를 찾을 수 없습니다.")
+            return pd.DataFrame()  # 빈 DataFrame 반환
+    except Exception as e:
+        st.error(f"데이터를 가져오는 중 오류가 발생했습니다: {e}")
+        return pd.DataFrame()  # 빈 DataFrame 반환
 
 # 사용자 프로필 관리 함수
 def load_profile(username):
@@ -223,8 +231,16 @@ def main():
         create_card("💨 풍속", avg_wind_speed, min_wind_speed, max_wind_speed, "m/s")
     with col3:
         create_card("💧 습도", float(latest_data['AVG_HUMI']), float(latest_data['MIN_HUMI']), float(latest_data['MAX_HUMI']), "%")
-    with col4:
-        create_card("☀️ 자외선", float(latest_data['AVG_ULTRA_RAYS']), float(latest_data['MIN_ULTRA_RAYS']), float(latest_data['MAX_ULTRA_RAYS']), "UV")
+with col4:
+    try:
+        avg_uv = float(latest_data.get('AVG_ULTRA_RAYS', 0))
+        min_uv = float(latest_data.get('MIN_ULTRA_RAYS', 0))
+        max_uv = float(latest_data.get('MAX_ULTRA_RAYS', 0))
+    except (ValueError, TypeError):
+        st.error("자외선 데이터를 숫자로 변환할 수 없습니다.")
+        avg_uv = min_uv = max_uv = "N/A"
+
+    create_card("☀️ 자외선", avg_uv, min_uv, max_uv, "UV")
 
     # 건강 조언
     st.header('💡 건강 조언')
