@@ -77,7 +77,13 @@ def fetch_data():
         response = requests.get(API_URL)
         data = response.json()
         if 'IotVdata017' in data and 'row' in data['IotVdata017']:
-            return pd.DataFrame(data['IotVdata017']['row'])
+            df = pd.DataFrame(data['IotVdata017']['row'])
+            # 필요한 컬럼이 있는지 확인
+            required_columns = ['AVG_TEMP', 'AVG_ULTRA_RAYS', 'AVG_WIND_SPEED', 'AVG_HUMI']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                st.warning(f"다음 컬럼이 데이터에 없습니다: {', '.join(missing_columns)}")
+            return df
         else:
             st.error("API 응답에서 예상한 데이터 구조를 찾을 수 없습니다.")
             return pd.DataFrame()  # 빈 DataFrame 반환
@@ -173,8 +179,15 @@ def main():
     # 데이터 로드
     df = fetch_data()
     
+    if df.empty:
+        st.error("데이터를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.")
+        return  # 함수 종료
+
     # 최신 데이터 선택
     latest_data = df.iloc[0]
+
+    # 데이터 구조 확인
+    st.write("Latest Data:", latest_data)
 
     # 사이드바 - 사용자 정보
     st.sidebar.header('👤 사용자 정보')
@@ -244,9 +257,13 @@ def main():
 
     # 건강 조언
     st.header('💡 건강 조언')
-    temp = float(latest_data['AVG_TEMP'])
-    uv = float(latest_data['AVG_ULTRA_RAYS'])
-    
+    try:
+        temp = float(latest_data.get('AVG_TEMP', 0))
+        uv = float(latest_data.get('AVG_ULTRA_RAYS', 0))
+    except (ValueError, TypeError):
+        st.error("온도 또는 자외선 데이터를 숫자로 변환할 수 없습니다.")
+        temp = uv = 0  # 기본값 설정
+
     advice_col1, advice_col2 = st.columns(2)
     with advice_col1:
         if temp > 30:
@@ -255,7 +272,7 @@ def main():
             st.info('❄️ 현재 기온이 낮습니다. 따뜻한 옷차림과 충분한 보온을 권장합니다.')
         else:
             st.success('✅ 현재 기온이 적당합니다. 가벼운 운동을 하기 좋은 날씨입니다.')
-    
+
     with advice_col2:
         if uv > 6:
             st.warning('☀️ 자외선 지수가 높습니다. 자외선 차단제를 바르고 모자를 착용하세요.')
