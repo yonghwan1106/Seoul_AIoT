@@ -78,18 +78,22 @@ def fetch_data():
         data = response.json()
         if 'IotVdata017' in data and 'row' in data['IotVdata017']:
             df = pd.DataFrame(data['IotVdata017']['row'])
-            # 필요한 컬럼이 있는지 확인
-            required_columns = ['AVG_TEMP', 'AVG_ULTRA_RAYS', 'AVG_WIND_SPEED', 'AVG_HUMI']
-            missing_columns = [col for col in required_columns if col not in df.columns]
-            if missing_columns:
-                st.warning(f"다음 컬럼이 데이터에 없습니다: {', '.join(missing_columns)}")
+            
+            # SENSING_TIME 열 형식 확인 및 전처리
+            if 'SENSING_TIME' in df.columns:
+                st.write("원본 SENSING_TIME 샘플:", df['SENSING_TIME'].head())
+                # 여기에 필요한 전처리 로직 추가
+                # 예: df['SENSING_TIME'] = pd.to_datetime(df['SENSING_TIME'], format='%Y-%m-%d %H:%M:%S')
+            else:
+                st.warning("SENSING_TIME 열이 데이터에 없습니다.")
+            
             return df
         else:
             st.error("API 응답에서 예상한 데이터 구조를 찾을 수 없습니다.")
-            return pd.DataFrame()  # 빈 DataFrame 반환
+            return pd.DataFrame()
     except Exception as e:
         st.error(f"데이터를 가져오는 중 오류가 발생했습니다: {e}")
-        return pd.DataFrame()  # 빈 DataFrame 반환
+        return pd.DataFrame()
 
 # 사용자 프로필 관리 함수
 def load_profile(username):
@@ -291,24 +295,32 @@ def main():
                      labels={'value': '측정값', 'variable': '환경 요소'})
         st.plotly_chart(fig, use_container_width=True)
 
+    # 시계열 데이터 시각화 전에 SENSING_TIME 열 확인
+    st.subheader("SENSING_TIME 데이터 확인")
+    st.write("SENSING_TIME 샘플:", df['SENSING_TIME'].head())
+    st.write("SENSING_TIME 데이터 타입:", df['SENSING_TIME'].dtype)
 
     # 시계열 데이터 시각화
     st.header('📈 최근 환경 데이터 추이')
-    df['SENSING_TIME'] = pd.to_datetime(df['SENSING_TIME'])
+    try:
+        df['SENSING_TIME'] = pd.to_datetime(df['SENSING_TIME'])
+    except Exception as e:
+        st.error(f"날짜 변환 중 오류 발생: {e}")
+        st.write("날짜 형식 샘플:", df['SENSING_TIME'].head())
+        
+        # 대체 방법: 문자열로 처리
+        df['SENSING_TIME'] = df['SENSING_TIME'].astype(str)
+
     df = df.sort_values('SENSING_TIME')
 
-    # 최근 24시간 데이터만 선택
-    last_24h = datetime.now() - timedelta(hours=24)
-    df_last_24h = df[df['SENSING_TIME'] > last_24h]
+    # 최근 24시간 데이터만 선택 (문자열 처리 시 이 부분은 주석 처리)
+    # last_24h = datetime.now() - timedelta(hours=24)
+    # df_last_24h = df[df['SENSING_TIME'] > last_24h]
 
-    fig = px.line(df_last_24h, x='SENSING_TIME', y=['AVG_TEMP', 'AVG_HUMI', 'AVG_WIND_SPEED', 'AVG_ULTRA_RAYS'],
-                  labels={'value': '측정값', 'variable': '환경 요소'},
-                  title='최근 24시간 환경 데이터 추이')
-    fig.update_layout(
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color="#5a5c69")
-    )
+    # 그래프 그리기
+    fig = px.line(df, x='SENSING_TIME', y=['AVG_TEMP', 'AVG_HUMI', 'AVG_WIND_SPEED', 'AVG_ULTRA_RAYS'],
+                labels={'value': '측정값', 'variable': '환경 요소'},
+                title='환경 데이터 추이')
     st.plotly_chart(fig, use_container_width=True)
 
     # 맞춤형 운동 추천
