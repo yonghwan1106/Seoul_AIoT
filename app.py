@@ -91,11 +91,15 @@ def save_profile(username, data):
 
 # 카드 생성 함수
 def create_card(title, value, min_value, max_value, unit):
+    value_str = f"{value:.1f}" if isinstance(value, (int, float)) else str(value)
+    min_value_str = f"{min_value:.1f}" if isinstance(min_value, (int, float)) else str(min_value)
+    max_value_str = f"{max_value:.1f}" if isinstance(max_value, (int, float)) else str(max_value)
+    
     st.markdown(f"""
     <div class="card">
         <h4>{title}</h4>
-        <p class="metric-value">{value:.1f}{unit}</p>
-        <p class="metric-label">최소: {min_value:.1f}{unit} / 최대: {max_value:.1f}{unit}</p>
+        <p class="metric-value">{value_str}{unit}</p>
+        <p class="metric-label">최소: {min_value_str}{unit} / 최대: {max_value_str}{unit}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -201,17 +205,22 @@ def main():
     st.header('📊 현재 환경 정보')
     col1, col2, col3, col4 = st.columns(4)
 
-    st.write(latest_data)
+    st.write("Latest Data:", latest_data)
+    st.write("AVG_WIND_SPEED type:", type(latest_data.get('AVG_WIND_SPEED')))
+    st.write("AVG_WIND_SPEED value:", latest_data.get('AVG_WIND_SPEED'))
+
     with col1:
         create_card("🌡️ 온도", float(latest_data['AVG_TEMP']), float(latest_data['MIN_TEMP']), float(latest_data['MAX_TEMP']), "°C")
     with col2:
-        create_card(
-        "💨 풍속",
-        latest_data.get('AVG_WIND_SPEED', 0),
-        latest_data.get('MIN_WIND_SPEED', 0),
-        latest_data.get('MAX_WIND_SPEED', 0),
-        "m/s"
-        )       
+        try:
+            avg_wind_speed = float(latest_data.get('AVG_WIND_SPEED', 0))
+            min_wind_speed = float(latest_data.get('MIN_WIND_SPEED', 0))
+            max_wind_speed = float(latest_data.get('MAX_WIND_SPEED', 0))
+        except ValueError:
+            st.error("풍속 데이터를 숫자로 변환할 수 없습니다.")
+            avg_wind_speed = min_wind_speed = max_wind_speed = "N/A"
+
+        create_card("💨 풍속", avg_wind_speed, min_wind_speed, max_wind_speed, "m/s")
     with col3:
         create_card("💧 습도", float(latest_data['AVG_HUMI']), float(latest_data['MIN_HUMI']), float(latest_data['MAX_HUMI']), "%")
     with col4:
