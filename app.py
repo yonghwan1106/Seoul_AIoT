@@ -231,16 +231,16 @@ def main():
         create_card("💨 풍속", avg_wind_speed, min_wind_speed, max_wind_speed, "m/s")
     with col3:
         create_card("💧 습도", float(latest_data['AVG_HUMI']), float(latest_data['MIN_HUMI']), float(latest_data['MAX_HUMI']), "%")
-with col4:
-    try:
-        avg_uv = float(latest_data.get('AVG_ULTRA_RAYS', 0))
-        min_uv = float(latest_data.get('MIN_ULTRA_RAYS', 0))
-        max_uv = float(latest_data.get('MAX_ULTRA_RAYS', 0))
-    except (ValueError, TypeError):
-        st.error("자외선 데이터를 숫자로 변환할 수 없습니다.")
-        avg_uv = min_uv = max_uv = "N/A"
+    with col4:
+        try:
+            avg_uv = float(latest_data.get('AVG_ULTRA_RAYS', 0))
+            min_uv = float(latest_data.get('MIN_ULTRA_RAYS', 0))
+            max_uv = float(latest_data.get('MAX_ULTRA_RAYS', 0))
+        except (ValueError, TypeError):
+            st.error("자외선 데이터를 숫자로 변환할 수 없습니다.")
+            avg_uv = min_uv = max_uv = "N/A"
 
-    create_card("☀️ 자외선", avg_uv, min_uv, max_uv, "UV")
+        create_card("☀️ 자외선", avg_uv, min_uv, max_uv, "UV")
 
     # 건강 조언
     st.header('💡 건강 조언')
