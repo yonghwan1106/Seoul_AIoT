@@ -267,11 +267,11 @@ def main():
     exercise_recommendation = recommend_exercise(temp, uv, float(latest_data['AVG_WIND_SPEED']), user_health)
     st.info(exercise_recommendation)
 
-        # 머신러닝 모델을 통한 건강 예측
-        st.header('🤖 AI 건강 예측')
-        health_prediction = train_and_predict(df, latest_data)
-        st.success(f"AI 모델이 예측한 당신의 오늘 건강 점수: {health_prediction:.2f}/10")
-        st.caption("이 점수는 현재 환경 조건과 당신의 건강 정보를 바탕으로 예측된 값입니다.")
+    # 머신러닝 모델을 통한 건강 예측
+    st.header('🤖 AI 건강 예측')
+    health_prediction = train_and_predict(df, latest_data)
+    st.success(f"AI 모델이 예측한 당신의 오늘 건강 점수: {health_prediction:.2f}/10")
+    st.caption("이 점수는 현재 환경 조건과 당신의 건강 정보를 바탕으로 예측된 값입니다.")
     
     # 공원 선택 및 정보 표시
     st.header('🌳 공원 정보')
